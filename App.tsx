@@ -23,7 +23,8 @@ import {
   User,
   LogOut,
   Sun,
-  Moon
+  Moon,
+  Repeat
 } from 'lucide-react';
 
 import { Task, TaskStatus, TaskPriority, DirectorRole, AppStats } from './types';
@@ -161,11 +162,26 @@ const App: React.FC = () => {
   }), [tasks]);
 
   const filteredTasks = useMemo(() => {
+    const today = new Date();
+    const currentDay = today.getDate();
+
     return tasks.filter(t => {
       const matchesSearch = t.task.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             t.assignee.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesRole = filterRole === DirectorRole.ALL || t.role === filterRole;
-      return matchesSearch && matchesRole;
+      
+      // Lógica de Recorrência (Visibility)
+      let isVisible = true;
+      if (t.is_recurring && t.recurring_day && t.lead_days !== undefined) {
+        // Se estamos no período de antecedência: (vencimento - antecedencia) <= dia_atual <= vencimento
+        const startDay = t.recurring_day - t.lead_days;
+        const endDay = t.recurring_day;
+        
+        // Verifica se o dia atual está na janela (simples, não lida com virada de mês para manter leve)
+        isVisible = currentDay >= startDay && currentDay <= endDay;
+      }
+
+      return matchesSearch && matchesRole && isVisible;
     });
   }, [tasks, searchTerm, filterRole]);
 
@@ -230,8 +246,8 @@ const App: React.FC = () => {
 
   // Export CSV
   const exportCSV = () => {
-    const headers = ["Status,Prioridade,Prazo,Responsável,Diretoria,Tarefa,Observações"];
-    const rows = tasks.map(t => `${t.status},${t.priority},${t.deadline},${t.assignee},${t.role},"${t.task.replace(/"/g, '""')}","${t.notes.replace(/"/g, '""')}"`);
+    const headers = ["Status,Prioridade,Recorrente,Prazo,Responsável,Diretoria,Tarefa,Observações"];
+    const rows = tasks.map(t => `${t.status},${t.priority},${t.is_recurring ? 'Sim' : 'Não'},${t.is_recurring ? `Todo dia ${t.recurring_day}` : t.deadline},${t.assignee},${t.role},"${t.task.replace(/"/g, '""')}","${t.notes.replace(/"/g, '""')}"`);
     const csv = "\uFEFF" + [headers, ...rows].join("\n");
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -508,10 +524,19 @@ const App: React.FC = () => {
                       </td>
                       <td className="px-6 py-5 whitespace-nowrap">
                         <div className="flex flex-col">
-                          <span className="text-sm font-bold text-slate-900 dark:text-slate-200">
-                            {new Date(task.deadline).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-bold uppercase">{new Date(task.deadline).getFullYear()}</span>
+                          {task.is_recurring ? (
+                            <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
+                              <Repeat className="w-3.5 h-3.5" />
+                              <span className="text-sm font-bold">Todo dia {task.recurring_day}</span>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="text-sm font-bold text-slate-900 dark:text-slate-200">
+                                {new Date(task.deadline).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-bold uppercase">{new Date(task.deadline).getFullYear()}</span>
+                            </>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-5 whitespace-nowrap">
@@ -575,8 +600,8 @@ const App: React.FC = () => {
                           <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center border border-slate-100 dark:border-slate-700">
                             <Search className="w-6 h-6 opacity-20" />
                           </div>
-                          <p className="font-bold">Nenhuma tarefa encontrada.</p>
-                          <p className="text-xs">Inicie criando uma nova tarefa no botão acima.</p>
+                          <p className="font-bold">Nenhuma tarefa ativa encontrada.</p>
+                          <p className="text-xs">Tarefas recorrentes só aparecem no período de antecedência definido.</p>
                         </div>
                       </td>
                     </tr>

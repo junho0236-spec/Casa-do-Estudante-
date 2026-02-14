@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Save } from 'lucide-react';
+import { X, Plus, Save, Repeat } from 'lucide-react';
 import { Task, TaskStatus, TaskPriority, DirectorRole } from '../types';
 import { DIRECTOR_ROLES_OPTIONS } from '../constants';
 
@@ -19,12 +19,20 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, taskToEd
     status: TaskStatus.PENDING,
     priority: TaskPriority.MEDIUM,
     deadline: new Date().toISOString().split('T')[0],
-    notes: ''
+    notes: '',
+    is_recurring: false,
+    recurring_day: 1,
+    lead_days: 0
   });
 
   useEffect(() => {
     if (taskToEdit) {
-      setFormData(taskToEdit);
+      setFormData({
+        ...taskToEdit,
+        is_recurring: taskToEdit.is_recurring || false,
+        recurring_day: taskToEdit.recurring_day || 1,
+        lead_days: taskToEdit.lead_days || 0
+      });
     } else {
       setFormData({
         task: '',
@@ -33,7 +41,10 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, taskToEd
         status: TaskStatus.PENDING,
         priority: TaskPriority.MEDIUM,
         deadline: new Date().toISOString().split('T')[0],
-        notes: ''
+        notes: '',
+        is_recurring: false,
+        recurring_day: 1,
+        lead_days: 0
       });
     }
   }, [taskToEdit, isOpen]);
@@ -59,6 +70,22 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, taskToEd
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-2">
+              <Repeat className={`w-5 h-5 ${formData.is_recurring ? 'text-indigo-600' : 'text-slate-400'}`} />
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Tarefa Recorrente?</span>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="sr-only peer"
+                checked={formData.is_recurring}
+                onChange={e => setFormData({ ...formData, is_recurring: e.target.checked })}
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
+          </div>
+
           <div>
             <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Título da Tarefa</label>
             <input 
@@ -67,7 +94,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, taskToEd
               value={formData.task}
               onChange={e => setFormData({ ...formData, task: e.target.value })}
               className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-              placeholder="Ex: Renovar alvará"
+              placeholder="Ex: Pagamento funcionários"
             />
           </div>
 
@@ -97,6 +124,46 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, taskToEd
             </div>
           </div>
 
+          {formData.is_recurring ? (
+            <div className="grid grid-cols-2 gap-4 p-4 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 rounded-2xl">
+              <div>
+                <label className="block text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider mb-1">Dia do Vencimento</label>
+                <input 
+                  required
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={formData.recurring_day}
+                  onChange={e => setFormData({ ...formData, recurring_day: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2 border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider mb-1">Lead Time (Dias antes)</label>
+                <input 
+                  required
+                  type="number"
+                  min="0"
+                  max="30"
+                  value={formData.lead_days}
+                  onChange={e => setFormData({ ...formData, lead_days: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2 border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Prazo</label>
+              <input 
+                required
+                type="date"
+                value={formData.deadline}
+                onChange={e => setFormData({ ...formData, deadline: e.target.value })}
+                className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Status</label>
@@ -122,17 +189,6 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, taskToEd
                 ))}
               </select>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Prazo</label>
-            <input 
-              required
-              type="date"
-              value={formData.deadline}
-              onChange={e => setFormData({ ...formData, deadline: e.target.value })}
-              className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
           </div>
 
           <div>

@@ -29,6 +29,10 @@ export interface Task {
   role: DirectorRole;
   task: string;
   notes: string;
+  // Campos recorrentes
+  is_recurring?: boolean;
+  recurring_day?: number;
+  lead_days?: number;
 }
 
 export interface AppStats {
