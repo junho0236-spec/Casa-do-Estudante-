@@ -173,11 +173,8 @@ const App: React.FC = () => {
       // Lógica de Recorrência (Visibility)
       let isVisible = true;
       if (t.is_recurring && t.recurring_day && t.lead_days !== undefined) {
-        // Se estamos no período de antecedência: (vencimento - antecedencia) <= dia_atual <= vencimento
         const startDay = t.recurring_day - t.lead_days;
         const endDay = t.recurring_day;
-        
-        // Verifica se o dia atual está na janela (simples, não lida com virada de mês para manter leve)
         isVisible = currentDay >= startDay && currentDay <= endDay;
       }
 
@@ -218,19 +215,37 @@ const App: React.FC = () => {
 
   // Task CRUD
   const handleSaveTask = async (taskData: Partial<Task>) => {
-    if (taskToEdit) {
-      const { error } = await supabase
-        .from('tasks')
-        .update(taskData)
-        .eq('id', taskToEdit.id);
-      if (error) alert('Erro ao atualizar tarefa: ' + error.message);
-    } else {
-      const { error } = await supabase
-        .from('tasks')
-        .insert([{ ...taskData, user_id: session?.user?.id }]);
-      if (error) alert('Erro ao criar tarefa: ' + error.message);
+    const payload: any = { ...taskData, user_id: session?.user?.id };
+    
+    // Se não for recorrente, removemos as propriedades do payload para evitar erros
+    // caso as colunas ainda não tenham sido criadas no Supabase.
+    if (!payload.is_recurring) {
+      delete payload.is_recurring;
+      delete payload.recurring_day;
+      delete payload.lead_days;
     }
-    fetchTasks();
+
+    try {
+      if (taskToEdit) {
+        const { error } = await supabase
+          .from('tasks')
+          .update(payload)
+          .eq('id', taskToEdit.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('tasks')
+          .insert([payload]);
+        if (error) throw error;
+      }
+      fetchTasks();
+    } catch (err: any) {
+      if (err.message.includes('is_recurring')) {
+        alert("ERRO DE CONFIGURAÇÃO: Você esqueceu de executar o comando SQL no Supabase para adicionar as novas colunas. Verifique as instruções enviadas.");
+      } else {
+        alert('Erro ao processar tarefa: ' + err.message);
+      }
+    }
   };
 
   const handleDeleteTask = async (id: number) => {
